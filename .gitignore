@@ -1,0 +1,7 @@
+config/server.env
+models/
+vendor/
+*.log
+*.pid
+.DS_Store
+

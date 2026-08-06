@@ -1,0 +1,62 @@
+#!/data/data/com.termux/files/usr/bin/sh
+set -eu
+
+project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+config_file=${PIXEL_BONSAI_CONFIG:-"$project_root/config/server.env"}
+
+if [ ! -f "$config_file" ]; then
+  echo "Missing $config_file. Run ./scripts/configure.sh first." >&2
+  exit 1
+fi
+
+set -a
+# shellcheck disable=SC1090
+. "$config_file"
+set +a
+
+: "${SERVER_HOST:=127.0.0.1}"
+: "${SERVER_PORT:=8080}"
+: "${MODEL_SIZE:=1.7b}"
+: "${CONTEXT_SIZE:=4096}"
+: "${THREADS:=4}"
+: "${PARALLEL:=1}"
+: "${API_KEY:=}"
+
+case "$MODEL_SIZE" in
+  1.7b) model_file="Bonsai-1.7B-Q1_0.gguf" ;;
+  8b) model_file="Bonsai-8B-Q1_0.gguf" ;;
+  27b) model_file="Bonsai-27B-Q1_0.gguf" ;;
+  *) echo "Unsupported MODEL_SIZE: $MODEL_SIZE" >&2; exit 2 ;;
+esac
+
+if [ "$SERVER_HOST" != "127.0.0.1" ] && [ "$SERVER_HOST" != "::1" ] && [ -z "$API_KEY" ]; then
+  echo "Refusing a non-loopback bind without API_KEY." >&2
+  exit 1
+fi
+
+server="$project_root/vendor/llama.cpp/build/bin/llama-server"
+model="$project_root/models/$model_file"
+
+if [ ! -x "$server" ]; then
+  echo "Missing llama-server. Run ./scripts/bootstrap-termux.sh." >&2
+  exit 1
+fi
+if [ ! -f "$model" ]; then
+  echo "Missing $model. Run ./scripts/download-model.sh $MODEL_SIZE." >&2
+  exit 1
+fi
+
+set -- \
+  --model "$model" \
+  --alias "bonsai-$MODEL_SIZE" \
+  --host "$SERVER_HOST" \
+  --port "$SERVER_PORT" \
+  --ctx-size "$CONTEXT_SIZE" \
+  --threads "$THREADS" \
+  --parallel "$PARALLEL"
+
+if [ -n "$API_KEY" ]; then
+  set -- "$@" --api-key "$API_KEY"
+fi
+
+exec "$server" "$@"
