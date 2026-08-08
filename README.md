@@ -86,8 +86,9 @@ included catalog into an existing `pixel-bonsai` profile with:
 
 The second argument must match `CONTEXT_SIZE` on the phone. The helper copies
 the catalog to the active Codex configuration directory and sets
-`model_catalog_json` in the selected profile. It does not read, copy, or modify
-the API key used by that profile.
+`model_catalog_json`, `model_context_window`, and a 75% automatic-compaction
+threshold in the selected profile. It does not read, copy, or modify the API key
+used by that profile.
 
 ### GitHub Copilot CLI
 

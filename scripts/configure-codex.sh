@@ -35,21 +35,54 @@ sed \
 profile_tmp=$(mktemp "${TMPDIR:-/tmp}/pixel-bonsai-profile.XXXXXX")
 trap 'rm -f "$profile_tmp"' EXIT HUP INT TERM
 
-awk -v catalog="$catalog_file" '
-  BEGIN { written = 0 }
-  /^model_catalog_json[[:space:]]*=/ {
-    print "model_catalog_json = \"" catalog "\""
-    written = 1
+awk \
+  -v catalog="$catalog_file" \
+  -v context_size="$context_size" \
+  -v compact_limit="$compact_limit" '
+  BEGIN {
+    catalog_written = 0
+    context_written = 0
+    compact_written = 0
+  }
+  /^model_context_window[[:space:]]*=/ {
+    print "model_context_window = " context_size
+    context_written = 1
     next
   }
-  /^\[/ && !written {
+  /^model_auto_compact_token_limit[[:space:]]*=/ {
+    print "model_auto_compact_token_limit = " compact_limit
+    compact_written = 1
+    next
+  }
+  /^model_catalog_json[[:space:]]*=/ {
     print "model_catalog_json = \"" catalog "\""
+    catalog_written = 1
+    next
+  }
+  /^\[/ && (!catalog_written || !context_written || !compact_written) {
+    if (!context_written) {
+      print "model_context_window = " context_size
+      context_written = 1
+    }
+    if (!compact_written) {
+      print "model_auto_compact_token_limit = " compact_limit
+      compact_written = 1
+    }
+    if (!catalog_written) {
+      print "model_catalog_json = \"" catalog "\""
+      catalog_written = 1
+    }
     print ""
-    written = 1
   }
   { print }
   END {
-    if (!written) {
+    if (!context_written) {
+      print "model_context_window = " context_size
+    }
+    if (!compact_written) {
+      print "model_auto_compact_token_limit = " compact_limit
+    }
+    if (!catalog_written) {
       print "model_catalog_json = \"" catalog "\""
     }
   }
