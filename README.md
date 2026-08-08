@@ -228,7 +228,15 @@ build, compiler, architecture, and logical CPU count with benchmark results.
 The server refuses a non-loopback bind without an API key. This protects against
 accidental unauthenticated LAN exposure, but plain HTTP does not encrypt traffic.
 Use only a trusted LAN or an encrypted overlay network. Never reuse a cloud API
-key or production credential as the local server key.
+key or production credential as the local server key. At startup, the configured
+key is copied into an ignored mode-600 runtime file and removed from the server
+environment; llama-server receives only the file path, keeping the credential out
+of process listings.
+
+Rotate a compromised or accidentally displayed key with
+`scripts/rotate-api-key.sh`, then restart the server and securely update each
+client. Set `PIXEL_BONSAI_TOKEN_EXPORT` only when a temporary mode-600 client copy
+is required; delete that copy after transferring it.
 
 ## Validation
 

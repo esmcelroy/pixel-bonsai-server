@@ -47,6 +47,7 @@ fi
 : "${ENABLE_METRICS:=1}"
 : "${ENABLE_PERF:=1}"
 : "${API_KEY:=}"
+: "${API_KEY_FILE:=}"
 
 case "$MODEL_SIZE" in
   1.7b) model_file="Bonsai-1.7B-Q1_0.gguf" ;;
@@ -55,7 +56,8 @@ case "$MODEL_SIZE" in
   *) echo "Unsupported MODEL_SIZE: $MODEL_SIZE" >&2; exit 2 ;;
 esac
 
-if [ "$SERVER_HOST" != "127.0.0.1" ] && [ "$SERVER_HOST" != "::1" ] && [ -z "$API_KEY" ]; then
+if [ "$SERVER_HOST" != "127.0.0.1" ] && [ "$SERVER_HOST" != "::1" ] && \
+   [ -z "$API_KEY" ] && [ -z "$API_KEY_FILE" ]; then
   echo "Refusing a non-loopback bind without API_KEY." >&2
   exit 1
 fi
@@ -95,7 +97,18 @@ if [ "$ENABLE_PERF" = "1" ]; then
 fi
 
 if [ -n "$API_KEY" ]; then
-  set -- "$@" --api-key "$API_KEY"
+  API_KEY_FILE=${API_KEY_FILE:-"$project_root/config/api-keys.runtime"}
+  umask 077
+  printf '%s\n' "$API_KEY" > "$API_KEY_FILE"
+fi
+unset API_KEY
+
+if [ -n "$API_KEY_FILE" ]; then
+  if [ ! -f "$API_KEY_FILE" ]; then
+    echo "Missing API key file: $API_KEY_FILE" >&2
+    exit 1
+  fi
+  set -- "$@" --api-key-file "$API_KEY_FILE"
 fi
 
 exec "$server" "$@"
