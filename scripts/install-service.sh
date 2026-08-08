@@ -9,6 +9,10 @@ if ! command -v sv-enable >/dev/null 2>&1; then
   echo "Missing termux-services. Run ./scripts/bootstrap-termux.sh first." >&2
   exit 1
 fi
+if ! command -v service-daemon >/dev/null 2>&1; then
+  echo "Missing service-daemon. Restart Termux after installing termux-services." >&2
+  exit 1
+fi
 
 project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 profile_name=${1:-interactive}
@@ -23,24 +27,58 @@ if [ ! -f "$profile_file" ]; then
   echo "Unknown runtime profile: $profile_name" >&2
   exit 2
 fi
-if [ -e "$service_dir/run" ] || [ -e "$watchdog_dir/run" ]; then
-  echo "Pixel Bonsai service files already exist; leaving them unchanged." >&2
-  exit 1
-fi
-
 mkdir -p "$service_dir/log" "$watchdog_dir/log" \
   "$server_log_dir" "$watchdog_log_dir"
 printf '%s\n' "$profile_name" > "$service_dir/profile"
 printf 's1000000\nn5\n' > "$server_log_dir/config"
 printf 's1000000\nn5\n' > "$watchdog_log_dir/config"
 
-ln -s "$project_root/scripts/service-run.sh" "$service_dir/run"
-ln -s "$project_root/scripts/service-log.sh" "$service_dir/log/run"
-ln -s "$project_root/scripts/watchdog.sh" "$watchdog_dir/run"
-ln -s "$project_root/scripts/watchdog-log.sh" "$watchdog_dir/log/run"
+ensure_link() {
+  link_target=$1
+  link_path=$2
+  if [ -L "$link_path" ] && [ "$(readlink "$link_path")" = "$link_target" ]; then
+    return
+  fi
+  if [ -e "$link_path" ] || [ -L "$link_path" ]; then
+    echo "Refusing to replace existing service file: $link_path" >&2
+    exit 1
+  fi
+  ln -s "$link_target" "$link_path"
+}
 
-sv-enable pixel-bonsai
-sv-enable pixel-bonsai-watchdog
+ensure_link "$project_root/scripts/service-run.sh" "$service_dir/run"
+ensure_link "$project_root/scripts/service-log.sh" "$service_dir/log/run"
+ensure_link "$project_root/scripts/watchdog.sh" "$watchdog_dir/run"
+ensure_link "$project_root/scripts/watchdog-log.sh" "$watchdog_dir/log/run"
 
-echo "Enabled Pixel Bonsai with the '$profile_name' profile."
-echo "Restart Termux once if the service daemon is not already running."
+export SVDIR="$service_root"
+export LOGDIR="$PREFIX/var/log"
+if [ ! -e "$service_dir/supervise/ok" ] || \
+   [ ! -e "$watchdog_dir/supervise/ok" ]; then
+  service-daemon start >/dev/null 2>&1 &
+fi
+
+supervise_wait=0
+while [ "$supervise_wait" -lt 50 ]; do
+  if [ -e "$service_dir/supervise/ok" ] && \
+     [ -e "$watchdog_dir/supervise/ok" ]; then
+    break
+  fi
+  sleep 0.1
+  supervise_wait=$((supervise_wait + 1))
+done
+
+if [ -e "$service_dir/supervise/ok" ] && \
+   [ -e "$watchdog_dir/supervise/ok" ]; then
+  sv-enable pixel-bonsai
+  sv-enable pixel-bonsai-watchdog
+  echo "Enabled Pixel Bonsai with the '$profile_name' profile."
+else
+  echo "Installed Pixel Bonsai with the '$profile_name' profile."
+  echo "The runit daemon is not ready yet. Restart the Termux shell, then run:"
+  echo "  sv-enable pixel-bonsai"
+  echo "  sv-enable pixel-bonsai-watchdog"
+  exit 0
+fi
+
+echo "Check status with: sv status pixel-bonsai pixel-bonsai-watchdog"

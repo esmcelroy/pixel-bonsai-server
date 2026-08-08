@@ -183,6 +183,11 @@ service and health watchdog:
 sv status pixel-bonsai pixel-bonsai-watchdog
 ```
 
+If installation reports that runit is not ready, restart the Termux shell and
+then run `sv-enable pixel-bonsai` and `sv-enable pixel-bonsai-watchdog`. This is
+required immediately after `termux-services` is first installed because its
+service daemon is normally started by the next shell session.
+
 The service acquires a wake lock when available, counts starts in Termux's
 runtime directory, and writes timestamped bounded logs below
 `$PREFIX/var/log/`. The watchdog restarts the service after three consecutive
