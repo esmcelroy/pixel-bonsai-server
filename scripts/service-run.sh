@@ -1,7 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/sh
 set -eu
 
-project_root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+script_path=$0
+if [ -L "$script_path" ]; then
+  script_path=$(readlink "$script_path")
+fi
+project_root=$(CDPATH='' cd -- "$(dirname -- "$script_path")/.." && pwd)
 service_dir="$PREFIX/var/service/pixel-bonsai"
 state_dir="$PREFIX/var/run/pixel-bonsai"
 profile_file="$service_dir/profile"
