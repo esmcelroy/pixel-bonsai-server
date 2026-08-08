@@ -52,8 +52,9 @@ cd pixel-bonsai-server
 ```
 
 The generated `config/server.env` is ignored by Git. `configure.sh` creates a
-random API key and binds the server to the LAN by default. Retrieve the phone's
-Wi-Fi address with:
+random 256-bit API key using OpenSSL when available, or Android's
+`/dev/urandom` otherwise, and binds the server to the LAN by default. Retrieve
+the phone's Wi-Fi address with:
 
 ```sh
 ip -brief address show wlan0
@@ -119,4 +120,3 @@ a physical Pixel 6 Pro:
 5. Record prompt-processing speed, generation speed, peak memory, and temperature.
 
 See [docs/pixel-validation.md](docs/pixel-validation.md) for the test record.
-
