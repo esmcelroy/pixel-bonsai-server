@@ -2,6 +2,7 @@
 set -eu
 
 token_file=${PIXEL_BONSAI_TOKEN_FILE:-"$HOME/.pixel_token"}
+: "${PIXEL_BONSAI_BASE_URL:?Set PIXEL_BONSAI_BASE_URL to the Pixel server /v1 URL.}"
 
 if ! command -v copilot >/dev/null 2>&1; then
   echo "GitHub Copilot CLI is not installed or is not on PATH." >&2
@@ -13,7 +14,7 @@ if [ ! -f "$token_file" ]; then
 fi
 
 COPILOT_PROVIDER_TYPE=openai
-COPILOT_PROVIDER_BASE_URL=${PIXEL_BONSAI_BASE_URL:-"http://192.168.1.122:8080/v1"}
+COPILOT_PROVIDER_BASE_URL=$PIXEL_BONSAI_BASE_URL
 COPILOT_PROVIDER_API_KEY=$(tr -d '\r\n' < "$token_file")
 COPILOT_PROVIDER_WIRE_API=completions
 COPILOT_MODEL=bonsai-1.7b

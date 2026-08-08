@@ -17,7 +17,6 @@ set +a
 : "${SERVER_PORT:=8080}"
 : "${HEALTHCHECK_TIMEOUT:=10}"
 
-curl --fail --silent --show-error \
+exec curl --fail --silent --show-error \
   --max-time "$HEALTHCHECK_TIMEOUT" \
-  "http://127.0.0.1:$SERVER_PORT/health"
-printf '\n'
+  "http://127.0.0.1:$SERVER_PORT/metrics"

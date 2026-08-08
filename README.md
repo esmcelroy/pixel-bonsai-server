@@ -48,7 +48,7 @@ cd pixel-bonsai-server
 ./scripts/bootstrap-termux.sh
 ./scripts/configure.sh
 ./scripts/download-model.sh 1.7b
-./scripts/start-server.sh
+./scripts/start-server.sh interactive
 ```
 
 The generated `config/server.env` is ignored by Git. `configure.sh` creates a
@@ -96,7 +96,7 @@ environment variables. With the Pixel token stored in `~/.pixel_token`, launch
 Copilot against the phone with:
 
 ```sh
-./scripts/run-copilot.sh
+PIXEL_BONSAI_BASE_URL=http://PIXEL_IP:8080/v1 ./scripts/run-copilot.sh
 ```
 
 The launcher selects the Chat Completions wire API, caps Copilot at a
@@ -126,19 +126,90 @@ such as Tailscale if access beyond the home LAN is required.
 ## Commands
 
 ```sh
-./scripts/start-server.sh             # foreground server
-./scripts/healthcheck.sh              # local authenticated check
-./scripts/download-model.sh 8b        # optional larger model
-./scripts/download-model.sh 27b       # highly experimental
+./scripts/start-server.sh interactive     # foreground, 4K context
+./scripts/start-server.sh agent           # foreground, 8K context
+./scripts/start-server.sh long-context    # foreground, 16K context
+./scripts/healthcheck.sh                  # bounded local health check
+./scripts/metrics.sh                      # Prometheus-format metrics
+./scripts/version-info.sh                 # reproducible build details
+./scripts/benchmark.sh                    # CPU/batch benchmark matrix
+./scripts/download-model.sh 8b            # optional larger model
+./scripts/download-model.sh 27b           # highly experimental
 ```
 
-Tune `CONTEXT_SIZE`, `THREADS`, and `PARALLEL` in `config/server.env`. Reduce
-context size first if Android kills the process or memory allocation fails.
+## Runtime profiles
+
+Named profiles keep context and batching choices reproducible without copying
+credentials or network settings:
+
+| Profile | Context | Intended use | KV cache |
+| --- | ---: | --- | --- |
+| `interactive` | 4096 | Chat and short requests | F16 |
+| `agent` | 8192 | Tool-using coding agents | F16 |
+| `long-context` | 16384 | Explicit large-context work | F16 |
+| `long-context-q8` | 16384 | Experimental lower-memory 16K work | Q8_0 |
+
+Values in a named profile override tuning values from the ignored
+`config/server.env`; host, port, and API key still come from `server.env`.
+The Q8 profile must be benchmarked for stability and output quality before
+relying on it. Reduce context size first if Android kills the process.
+
+## Benchmarking
+
+Stop the server before benchmarking so two model instances do not compete for
+memory, then run:
+
+```sh
+sv down pixel-bonsai 2>/dev/null || true
+./scripts/benchmark.sh
+sv up pixel-bonsai 2>/dev/null || true
+```
+
+The default matrix tests 2, 4, and 6 CPU threads; 256 and 512 logical batch
+sizes; and 64 and 128 physical micro-batches. Override matrix values through
+`BENCHMARK_THREADS`, `BENCHMARK_BATCH_SIZES`, and `BENCHMARK_UBATCH_SIZES`.
+Record both prompt-processing and generation throughput because their optimal
+settings may differ. See the upstream
+[llama-bench documentation](https://github.com/ggml-org/llama.cpp/tree/master/tools/llama-bench)
+for output formats and measurement semantics.
+
+## Supervised service
+
+After validating a foreground start, install an automatically restarted Termux
+service and health watchdog:
+
+```sh
+./scripts/install-service.sh interactive
+sv status pixel-bonsai pixel-bonsai-watchdog
+```
+
+The service acquires a wake lock when available, counts starts in Termux's
+runtime directory, and writes timestamped bounded logs below
+`$PREFIX/var/log/`. The watchdog restarts the service after three consecutive
+failed health checks. Change the service profile by updating
+`$PREFIX/var/service/pixel-bonsai/profile` and restarting the service.
+See [termux-services](https://github.com/termux/termux-services) for the runit
+service lifecycle and log locations.
+
+Metrics and internal performance timing are enabled by default. `/metrics`
+reports throughput, active/deferred requests, and context high-water marks.
+Operational endpoints may not require the API key, so expose them only on a
+trusted network or private overlay. Metric names and server tuning flags are
+documented in the upstream
+[llama-server reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+## Reproducible build
+
+`bootstrap-termux.sh` pins PrismML's llama.cpp fork to commit
+`9ca265a57f85f2117942490f421f64a226dd9847`, the revision used by the recorded
+physical-device validation. The script refuses to replace a modified vendor
+checkout. Run `scripts/version-info.sh` to capture the exact revision, server
+build, compiler, architecture, and logical CPU count with benchmark results.
 
 ## Operational notes
 
-- Run `termux-wake-lock` before serving to keep the CPU available while the
-  phone is unplugged; run `termux-wake-unlock` when finished.
+- The supervised service acquires `termux-wake-lock`; foreground users should
+  acquire it manually and run `termux-wake-unlock` when finished.
 - Expect sustained inference to heat the phone. Remove heavy cases, avoid
   charging at maximum speed during long runs, and stop if Android reports
   thermal warnings.
