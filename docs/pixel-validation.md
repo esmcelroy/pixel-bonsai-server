@@ -42,8 +42,13 @@ large-context prompt processing but is not an exact maximum-capacity test.
 - Full Copilot CLI test at a 12,288-token prompt budget: failed after more than
   five minutes with a provider connection error; the server was subsequently
   unreachable
-- Resulting launcher default: 4,096 prompt tokens and 512 output tokens; requires
-  retesting after llama-server is restarted
+- Conservative Copilot CLI retest: passed at the transport/process level with a
+  4,096-token prompt budget and 512-token output budget
+- Conservative retest wall time: 721.33 seconds; first streamed output arrived
+  after approximately nine minutes
+- Conservative retest output: included `COPILOT_PIXEL_OK`, but also emitted
+  unexpected datetime and system-reminder markup
+- Post-test server health: passed
 
 ## Network and security
 
