@@ -1,0 +1,32 @@
+{
+  "models": [
+    {
+      "slug": "bonsai-1.7b",
+      "display_name": "Bonsai 1.7B",
+      "description": "Bonsai 1.7B served locally by the Pixel Bonsai server.",
+      "base_instructions": "You are a concise local coding assistant. Follow the supplied developer and user instructions, use available tools carefully, preserve unrelated work, and never reveal secrets.",
+      "default_reasoning_level": "none",
+      "supported_reasoning_levels": [],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 0,
+      "supports_reasoning_summary_parameter": false,
+      "support_verbosity": false,
+      "supports_parallel_tool_calls": false,
+      "supports_image_detail_original": false,
+      "truncation_policy": {
+        "mode": "tokens",
+        "limit": 1024
+      },
+      "context_window": 16384,
+      "max_context_window": 16384,
+      "auto_compact_token_limit": 12288,
+      "effective_context_window_percent": 100,
+      "experimental_supported_tools": [],
+      "input_modalities": ["text"],
+      "supports_search_tool": false,
+      "use_responses_lite": false
+    }
+  ]
+}

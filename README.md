@@ -74,6 +74,21 @@ Configure an OpenAI-compatible client with:
 - API key: the value in the phone's ignored `config/server.env`
 - Model: `bonsai-1.7b`
 
+### Codex model metadata
+
+Codex uses a richer model catalog than the standard OpenAI `/v1/models`
+response returned by llama-server. On the computer running Codex, install the
+included catalog into an existing `pixel-bonsai` profile with:
+
+```sh
+./scripts/configure-codex.sh pixel-bonsai 16384
+```
+
+The second argument must match `CONTEXT_SIZE` on the phone. The helper copies
+the catalog to the active Codex configuration directory and sets
+`model_catalog_json` in the selected profile. It does not read, copy, or modify
+the API key used by that profile.
+
 Do not expose port 8080 directly to the internet. Use a private overlay network
 such as Tailscale if access beyond the home LAN is required.
 
