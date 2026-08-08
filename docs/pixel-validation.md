@@ -18,22 +18,33 @@ credentials, private addresses, or other secrets.
 
 ## Inference
 
-| Model | Context | Threads | Prompt tok/s | Generation tok/s | Peak RSS | Notes |
-| --- | ---: | ---: | ---: | ---: | ---: | --- |
-| Bonsai 1.7B Q1_0 | 4096 | 4 | | | | |
+Live validation performed on 2026-08-08. The server reported
+`n_params=1720028160` (approximately 1.72B parameters) and `n_ctx=16384`.
+
+| Model | Context | Threads | Prompt tokens | Prompt tok/s | Generation tok/s | Wall time | Peak RSS | Notes |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| Bonsai 1.7B Q1_0 | 16384 | not observed | 25 | 97.66 | 14.47 | 1.23 s | not observed | Warm short request passed and returned `BONSAI_16K_OK`. |
+| Bonsai 1.7B Q1_0 | 16384 | not observed | 12024 | 22.31 | 1.74 | 557.53 s | not observed | Large-context request completed with HTTP 200 and 12056 total tokens. Output reached the 32-token limit and did not follow the requested exact response. |
+
+The large-context request used 12,024 prompt tokens rather than filling all
+16,384 slots, leaving room for chat templating and generated output. It confirms
+large-context prompt processing but is not an exact maximum-capacity test.
 
 ## Network and security
 
-- Loopback health check passed: yes/no
-- Authenticated LAN request passed: yes/no
-- Unauthenticated LAN request rejected: yes/no
+- Loopback health check passed: not observed from the client; LAN `/health` passed
+- Authenticated LAN request passed: yes
+- Unauthenticated LAN inference request rejected: yes (`401`)
+- Unauthenticated LAN model-list request rejected: no (`/v1/models` returned `200`)
 - Internet exposure check passed: yes/no
 - Overlay-network test, if used:
 
 ## Thermal and stability
 
-- Test duration:
+- Test duration: 557.53 seconds for the large-context request
 - Highest reported battery temperature:
 - Android thermal warnings:
 - Unexpected process termination:
 
+Client-side Codex validation used a 600,000 ms stream-idle timeout to allow
+near-capacity prompt ingestion on the Pixel 6 Pro.
