@@ -30,6 +30,21 @@ The large-context request used 12,024 prompt tokens rather than filling all
 16,384 slots, leaving room for chat templating and generated output. It confirms
 large-context prompt processing but is not an exact maximum-capacity test.
 
+## GitHub Copilot CLI compatibility
+
+- OpenAI Chat Completions streaming: passed
+- Function calling: passed
+- Requested tool call: `ping` with `{"value":"test"}`
+- Finish reason: `tool_calls`
+- Tool-call test prompt processing: 93.51 tok/s
+- Tool-call test generation: 13.80 tok/s
+- Copilot CLI context recommendation met: no (16K available; 128K recommended)
+- Full Copilot CLI test at a 12,288-token prompt budget: failed after more than
+  five minutes with a provider connection error; the server was subsequently
+  unreachable
+- Resulting launcher default: 4,096 prompt tokens and 512 output tokens; requires
+  retesting after llama-server is restarted
+
 ## Network and security
 
 - Loopback health check passed: not observed from the client; LAN `/health` passed

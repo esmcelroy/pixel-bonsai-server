@@ -89,6 +89,37 @@ the catalog to the active Codex configuration directory and sets
 `model_catalog_json` in the selected profile. It does not read, copy, or modify
 the API key used by that profile.
 
+### GitHub Copilot CLI
+
+GitHub Copilot CLI supports local OpenAI-compatible providers through BYOK
+environment variables. With the Pixel token stored in `~/.pixel_token`, launch
+Copilot against the phone with:
+
+```sh
+./scripts/run-copilot.sh
+```
+
+The launcher selects the Chat Completions wire API, caps Copilot at a
+conservative 4K prompt plus 512 output tokens within the server's 16K window,
+marks the API-key environment variable as secret, disables built-in GitHub MCP,
+and enables Copilot offline mode. It also removes GitHub authentication variables
+from the Copilot child process because offline BYOK does not use them. Override
+the defaults without editing the script when necessary:
+
+```sh
+PIXEL_BONSAI_BASE_URL=http://PIXEL_IP:8080/v1 \
+PIXEL_BONSAI_TOKEN_FILE=/path/to/token \
+PIXEL_BONSAI_COPILOT_MAX_PROMPT_TOKENS=4096 \
+PIXEL_BONSAI_COPILOT_MAX_OUTPUT_TOKENS=512 \
+./scripts/run-copilot.sh
+```
+
+Offline mode disables GitHub-hosted features such as delegation and code search.
+The Bonsai model meets Copilot CLI's streaming and function-calling requirements,
+but its 16K context is substantially below GitHub's recommended 128K minimum.
+The smaller Copilot-specific budget is intentional: a full agent request at a
+12K prompt budget exceeded the practical latency/stability envelope of the phone.
+
 Do not expose port 8080 directly to the internet. Use a private overlay network
 such as Tailscale if access beyond the home LAN is required.
 
