@@ -41,6 +41,13 @@ fi
 : "${BATCH_SIZE:=512}"
 : "${UBATCH_SIZE:=128}"
 : "${PARALLEL:=1}"
+: "${CPU_RANGE:=}"
+: "${CPU_RANGE_BATCH:=$CPU_RANGE}"
+: "${CPU_STRICT:=1}"
+: "${CACHE_RAM_MIB:=1024}"
+: "${CTX_CHECKPOINTS:=4}"
+: "${CACHE_REUSE:=0}"
+: "${SLOT_SAVE_PATH:=}"
 : "${FLASH_ATTN:=auto}"
 : "${CACHE_TYPE_K:=f16}"
 : "${CACHE_TYPE_V:=f16}"
@@ -87,7 +94,25 @@ set -- \
   --flash-attn "$FLASH_ATTN" \
   --cache-type-k "$CACHE_TYPE_K" \
   --cache-type-v "$CACHE_TYPE_V" \
-  --parallel "$PARALLEL"
+  --parallel "$PARALLEL" \
+  --cache-ram "$CACHE_RAM_MIB" \
+  --ctx-checkpoints "$CTX_CHECKPOINTS" \
+  --cache-reuse "$CACHE_REUSE"
+
+# Pin inference to the performance cores. Without affinity Android may place
+# threads on the Cortex-A55 cores (0-3 on a Pixel 6 Pro). Android can still
+# confine a background process to a smaller cpuset; see scripts/affinity-check.sh.
+if [ -n "$CPU_RANGE" ]; then
+  set -- "$@" --cpu-range "$CPU_RANGE" --cpu-strict "$CPU_STRICT"
+fi
+if [ -n "$CPU_RANGE_BATCH" ]; then
+  set -- "$@" --cpu-range-batch "$CPU_RANGE_BATCH" \
+    --cpu-strict-batch "$CPU_STRICT"
+fi
+if [ -n "$SLOT_SAVE_PATH" ]; then
+  mkdir -p "$SLOT_SAVE_PATH"
+  set -- "$@" --slot-save-path "$SLOT_SAVE_PATH"
+fi
 
 if [ "$ENABLE_METRICS" = "1" ]; then
   set -- "$@" --metrics

@@ -59,6 +59,15 @@ large-context prompt processing but is not an exact maximum-capacity test.
 - Internet exposure check passed: yes/no
 - Overlay-network test, if used:
 
+## CPU affinity
+
+Record `scripts/affinity-check.sh` output during a request.
+
+- Allowed CPUs with Termux in the foreground:
+- Allowed CPUs with the screen off:
+- `system_info` reports `DOTPROD = 1`: yes/no
+- Pinned (`0xf0`) versus unpinned (`0x0`) benchmark result:
+
 ## Thermal and stability
 
 - Test duration: 557.53 seconds for the large-context request
