@@ -134,6 +134,7 @@ such as Tailscale if access beyond the home LAN is required.
 ./scripts/metrics.sh                      # Prometheus-format metrics
 ./scripts/version-info.sh                 # reproducible build details
 ./scripts/benchmark.sh                    # CPU/batch benchmark matrix
+./scripts/affinity-check.sh               # CPUs Android lets the server use
 ./scripts/download-model.sh 8b            # optional larger model
 ./scripts/download-model.sh 27b           # highly experimental
 ```
@@ -149,6 +150,12 @@ credentials or network settings:
 | `agent` | 8192 | Tool-using coding agents | F16 |
 | `long-context` | 16384 | Explicit large-context work | F16 |
 | `long-context-q8` | 16384 | Experimental lower-memory 16K work | Q8_0 |
+
+Every profile pins generation and batch threads to cores 4-7 (two Cortex-A76 and
+two Cortex-X1) with `CPU_RANGE` and `CPU_RANGE_BATCH`, and uses four batch
+threads so the slower Cortex-A55 cores do not hold back prompt processing. The
+`agent` and long-context profiles also set `CACHE_REUSE=256` so trimmed
+conversation history can reuse cached chunks instead of being reprocessed.
 
 Values in a named profile override tuning values from the ignored
 `config/server.env`; host, port, and API key still come from `server.env`.
@@ -166,9 +173,31 @@ sv down pixel-bonsai 2>/dev/null || true
 sv up pixel-bonsai 2>/dev/null || true
 ```
 
-The default matrix tests 2, 4, and 6 CPU threads; 256 and 512 logical batch
+The default matrix tests 2 and 4 CPU threads; 256 and 512 logical batch
 sizes; and 64 and 128 physical micro-batches. Override matrix values through
 `BENCHMARK_THREADS`, `BENCHMARK_BATCH_SIZES`, and `BENCHMARK_UBATCH_SIZES`.
+
+Runs are pinned to cores 4-7 with `BENCHMARK_CPU_MASK=0xf0` so results do not
+depend on where Android schedules the threads. Compare core sets by overriding
+the mask and thread count together:
+
+```sh
+BENCHMARK_CPU_MASK=0xc0 BENCHMARK_THREADS=2 ./scripts/benchmark.sh   # Cortex-X1 only
+BENCHMARK_CPU_MASK=0xfc BENCHMARK_THREADS=6 ./scripts/benchmark.sh   # six cores
+BENCHMARK_CPU_MASK=0x0 ./scripts/benchmark.sh                        # unpinned
+```
+
+`BENCHMARK_DELAY` (60 seconds by default) pauses between tests so later rows
+are not penalised by heat from earlier ones. The short matrix tests do not run
+long enough to reach thermal throttling; measure that separately with one long
+run that uses the thread and batch settings from `config/server.env`:
+
+```sh
+BENCHMARK_MODE=sustained ./scripts/benchmark.sh   # 4096 prompt + 512 generated
+```
+
+When the optional Termux:API app and `termux-api` package are installed, the
+script prints the battery temperature before and after the run.
 Record both prompt-processing and generation throughput because their optimal
 settings may differ. See the upstream
 [llama-bench documentation](https://github.com/ggml-org/llama.cpp/tree/master/tools/llama-bench)
@@ -203,6 +232,32 @@ Operational endpoints may not require the API key, so expose them only on a
 trusted network or private overlay. Metric names and server tuning flags are
 documented in the upstream
 [llama-server reference](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md).
+
+## Performance tuning
+
+- **Core pinning.** `CPU_RANGE=4-7` keeps inference on the performance cores.
+  Android can still confine a background process to a smaller cpuset that no
+  affinity flag overrides. During a request, run `./scripts/affinity-check.sh`
+  once with Termux in the foreground and once with the screen off. If the
+  allowed list shrinks to the efficiency cores (`0-3`), keep Termux in the
+  foreground with the screen on while serving.
+- **Prompt cache memory.** llama-server defaults to an 8192 MiB host-memory
+  prompt cache and 32 context checkpoints per slot, which invites Android's
+  low-memory killer on a 12 GB phone. `start-server.sh` caps these with
+  `CACHE_RAM_MIB=1024` and `CTX_CHECKPOINTS=4`; set `CACHE_RAM_MIB=0` to
+  disable the cache.
+- **Prompt reuse.** Prompt processing dominates agent latency. Keep the start
+  of each client prompt stable (a timestamp near the top invalidates the cached
+  prefix on every request). To avoid reprocessing a fixed system prompt after a
+  restart, set `SLOT_SAVE_PATH` to a directory and use llama-server's slot
+  save and restore actions (`POST /slots/0?action=save` and `action=restore`).
+- **Build features.** The fork's 1-bit kernel has a faster path that is only
+  compiled when the ARM dot-product extension is detected at build time. Check
+  that the `system_info` line printed at server start reports `DOTPROD = 1`.
+
+These defaults follow from the Pixel 6 Pro core layout and the pinned fork's
+options; record measured results in
+[docs/pixel-validation.md](docs/pixel-validation.md) before relying on them.
 
 ## Reproducible build
 
